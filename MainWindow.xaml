@@ -1,0 +1,65 @@
+<Window x:Class="FolderDigest.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Folder Digest (gitingest‑like)" Height="600" Width="900"
+        MinHeight="420" MinWidth="720">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Row 0: Folder picker -->
+        <Grid Grid.Row="0" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Folder:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBox x:Name="txtFolder" Grid.Column="1" Height="28" VerticalContentAlignment="Center"/>
+            <Button x:Name="btnBrowse" Grid.Column="2" Content="Browse…" Margin="8,0,0,0" Padding="14,4" Click="btnBrowse_Click"/>
+        </Grid>
+
+        <!-- Row 1: Options -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+            <CheckBox x:Name="chkIncludeHidden" Content="Include hidden files" Margin="0,0,16,0"/>
+            <CheckBox x:Name="chkIncludeBinaries" Content="Include binary files" Margin="0,0,16,0"/>
+            <TextBlock Text="Max file size (MB):" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBox x:Name="txtMaxMB" Width="60" Height="28" Text="1" VerticalContentAlignment="Center" ToolTip="Files larger than this are skipped"/>
+        </StackPanel>
+
+        <!-- Row 2: Command buttons + progress -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,8">
+            <Button x:Name="btnGenerate" Content="Generate Digest" Padding="14,6" Click="btnGenerate_Click"/>
+            <Button x:Name="btnCopy" Content="Copy" Padding="14,6" Margin="8,0,0,0" Click="btnCopy_Click" IsEnabled="False"/>
+            <Button x:Name="btnSave" Content="Save…" Padding="14,6" Margin="8,0,0,0" Click="btnSave_Click" IsEnabled="False"/>
+            <ProgressBar x:Name="progress" Width="170" Height="18" Margin="16,0,0,0" Visibility="Collapsed" IsIndeterminate="True"/>
+            <TextBlock x:Name="lblStatus" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="Gray"/>
+        </StackPanel>
+
+        <!-- Row 3: Digest view -->
+        <TextBox x:Name="txtOutput"
+                 Grid.Row="3"
+                 FontFamily="Consolas"
+                 FontSize="12"
+                 AcceptsReturn="True"
+                 AcceptsTab="True"
+                 TextWrapping="NoWrap"
+                 HorizontalScrollBarVisibility="Auto"
+                 VerticalScrollBarVisibility="Auto"
+                 IsReadOnly="True"
+                 Background="{DynamicResource {x:Static SystemColors.ControlLightLightBrushKey}}"/>
+
+        <!-- Row 4: note -->
+        <TextBlock Grid.Row="4"
+                   Foreground="DimGray"
+                   FontSize="12"
+                   Margin="0,8,0,0">
+            Common heavy/dev folders (e.g. .git, node_modules, bin/obj) and obvious binaries are skipped by default.
+        </TextBlock>
+    </Grid>
+</Window>
