@@ -10,10 +10,19 @@ namespace FolderDigest
 {
     public partial class MainWindow : Window
     {
+        private readonly UserSettings _settings;
+
         public MainWindow()
         {
             InitializeComponent();
-            txtFolder.Text = Environment.CurrentDirectory;
+
+            _settings = UserSettings.Load();
+
+            var startFolder = (!string.IsNullOrWhiteSpace(_settings.LastFolder) && Directory.Exists(_settings.LastFolder))
+                ? _settings.LastFolder
+                : Environment.CurrentDirectory;
+
+            txtFolder.Text = startFolder;
         }
 
         private void btnBrowse_Click(object sender, RoutedEventArgs e)
@@ -28,6 +37,10 @@ namespace FolderDigest
             if (result == WinForms.DialogResult.OK && !string.IsNullOrWhiteSpace(dlg.SelectedPath))
             {
                 txtFolder.Text = dlg.SelectedPath;
+
+                // Persist selection
+                _settings.LastFolder = dlg.SelectedPath;
+                _settings.Save();
             }
         }
 
@@ -39,6 +52,10 @@ namespace FolderDigest
                 System.Windows.MessageBox.Show(this, "Please choose a valid folder.", "Folder Digest", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
+
+            // Save the current folder before running
+            _settings.LastFolder = root;
+            _settings.Save();
 
             if (!double.TryParse(txtMaxMB.Text.Trim(), out var maxMb) || maxMb <= 0)
                 maxMb = 1.0;
@@ -109,6 +126,17 @@ namespace FolderDigest
             btnBrowse.IsEnabled = !isBusy;
             progress.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
             lblStatus.Text = message ?? "";
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            try
+            {
+                _settings.LastFolder = txtFolder.Text.Trim();
+                _settings.Save();
+            }
+            catch { /* ignore */ }
+            base.OnClosed(e);
         }
     }
 }

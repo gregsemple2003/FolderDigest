@@ -7,5 +7,6 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>FolderDigest</AssemblyName>
+    <ApplicationIcon>digest_copy_icon.ico</ApplicationIcon>
   </PropertyGroup>
 </Project>
