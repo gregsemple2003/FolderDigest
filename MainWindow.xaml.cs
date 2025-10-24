@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -47,6 +48,12 @@ namespace FolderDigest
 
             _settings = UserSettings.Load();
 
+            // Set window geometry from settings
+            Left = _settings.WindowX;
+            Top = _settings.WindowY;
+            Width = _settings.WindowWidth;
+            Height = _settings.WindowHeight;
+
             var startFolder = (!string.IsNullOrWhiteSpace(_settings.LastFolder) && Directory.Exists(_settings.LastFolder))
                 ? _settings.LastFolder
                 : Environment.CurrentDirectory;
@@ -74,8 +81,15 @@ namespace FolderDigest
             // Hook up preview mouse event for multi-toggle checkbox functionality
             dgFiles.PreviewMouseLeftButtonDown += DgFiles_PreviewMouseLeftButtonDown;
 
+            // Hook up sorting events for persistence
+            dgFiles.Sorting += DgFiles_Sorting;
+
             // Initial load
-            Loaded += async (_, __) => await RefreshFileListAsync();
+            Loaded += async (_, __) => 
+            {
+                await RefreshFileListAsync();
+                ApplySavedSortState();
+            };
         }
 
         private void btnBrowse_Click(object sender, RoutedEventArgs e)
@@ -187,6 +201,13 @@ namespace FolderDigest
             try
             {
                 _settings.LastFolder = txtFolder.Text.Trim();
+                
+                // Save window geometry
+                _settings.WindowX = Left;
+                _settings.WindowY = Top;
+                _settings.WindowWidth = Width;
+                _settings.WindowHeight = Height;
+                
                 _settings.Save();
             }
             catch { /* ignore */ }
@@ -370,6 +391,52 @@ namespace FolderDigest
                 // Prevent default per-row toggle and selection changes for this click.
                 e.Handled = true;
             }
+        }
+
+        // ----------------------------
+        // DataGrid sorting persistence
+        // ----------------------------
+
+        private void DgFiles_Sorting(object? sender, DataGridSortingEventArgs e)
+        {
+            var current = e.Column.SortDirection; // pre-toggle value
+            var next = current switch
+            {
+                ListSortDirection.Ascending  => ListSortDirection.Descending,
+                ListSortDirection.Descending => ListSortDirection.Ascending,
+                _                            => ListSortDirection.Ascending  // null -> first click sorts ascending
+            };
+
+            _settings.SortColumn = e.Column.SortMemberPath;
+            _settings.SortDirection = next.ToString();
+            _settings.Save();
+        }
+
+        private void ApplySavedSortState()
+        {
+            if (string.IsNullOrEmpty(_settings.SortColumn)) return;
+
+            // Find the column to sort by
+            var column = dgFiles.Columns.FirstOrDefault(c => c.SortMemberPath == _settings.SortColumn);
+            if (column == null) return;
+
+            // Apply the sort direction
+            var sortDirection = _settings.SortDirection switch
+            {
+                "Descending" => ListSortDirection.Descending,
+                "Ascending" => ListSortDirection.Ascending,
+                _ => ListSortDirection.Ascending
+            };
+
+            // Set the column's sort direction and trigger the sort
+            column.SortDirection = sortDirection;
+            
+            // Clear existing sort descriptions and add the new one
+            dgFiles.Items.SortDescriptions.Clear();
+            dgFiles.Items.SortDescriptions.Add(new SortDescription(_settings.SortColumn, sortDirection));
+            
+            // Force the DataGrid to refresh its sort indicators and apply the sort
+            dgFiles.Items.Refresh();
         }
     }
 }

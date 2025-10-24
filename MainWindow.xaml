@@ -1,8 +1,9 @@
 <Window x:Class="FolderDigest.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Folder Digest (gitingest‑like)" Height="600" Width="900"
-        MinHeight="420" MinWidth="720">
+        Title="Folder Digest (gitingest‑like)" 
+        MinHeight="420" MinWidth="720"
+        WindowStartupLocation="Manual">
     <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>  <!-- Row 0: Folder picker -->

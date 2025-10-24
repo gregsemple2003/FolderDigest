@@ -15,6 +15,16 @@ namespace FolderDigest
     {
         public string? LastFolder { get; set; }
 
+        // Window geometry persistence
+        public double WindowX { get; set; } = 100;
+        public double WindowY { get; set; } = 100;
+        public double WindowWidth { get; set; } = 900;
+        public double WindowHeight { get; set; } = 600;
+
+        // DataGrid sorting persistence
+        public string? SortColumn { get; set; } = "RelativePath";
+        public string SortDirection { get; set; } = "Ascending"; // "Ascending", "Descending", or "None"
+
         // Per-folder selection state: only store Excluded paths (relative to the folder).
         public Dictionary<string, FolderSelectionState> Selections { get; set; }
             = new(StringComparer.OrdinalIgnoreCase);
