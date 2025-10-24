@@ -39,8 +39,8 @@ namespace FolderDigest
             ".sqlite",".db",".db3",".snd",".iso"
         };
 
-
-        public static string BuildDigest(string root, DirectoryDigesterOptions options)
+        // NEW: optional filter set of relative paths to include (others skipped)
+        public static string BuildDigest(string root, DirectoryDigesterOptions options, ISet<string>? onlyIncludeRelativePaths = null)
         {
             LastFileCount = 0;
             LastSkippedCount = 0;
@@ -76,6 +76,13 @@ namespace FolderDigest
                 }
 
                 var relPath = Path.GetRelativePath(root, file);
+
+                // NEW: skip if not selected for inclusion
+                if (onlyIncludeRelativePaths != null && !onlyIncludeRelativePaths.Contains(relPath))
+                {
+                    LastSkippedCount++;
+                    continue;
+                }
 
                 // Read as text with BOM detection; fall back to bytes->UTF8 if necessary
                 string content;
@@ -117,7 +124,8 @@ namespace FolderDigest
             return sb.ToString();
         }
 
-        private static IEnumerable<string> EnumerateFiles(string root, bool includeHidden)
+        // Made public so UI can reuse the traversal (skip hidden + dev folders)
+        public static IEnumerable<string> EnumerateFiles(string root, bool includeHidden)
         {
             var stack = new Stack<string>();
             stack.Push(root);
@@ -181,7 +189,8 @@ namespace FolderDigest
             }
         }
 
-        private static bool LooksBinary(string path)
+        // Made public for UI filtering
+        public static bool LooksBinary(string path)
         {
             try
             {

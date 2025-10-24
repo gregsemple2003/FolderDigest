@@ -5,11 +5,12 @@
         MinHeight="420" MinWidth="720">
     <Grid Margin="12">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>  <!-- Row 0: Folder picker -->
+            <RowDefinition Height="Auto"/>  <!-- Row 1: NEW file list panel -->
+            <RowDefinition Height="Auto"/>  <!-- Row 2: Options -->
+            <RowDefinition Height="Auto"/>  <!-- Row 3: Commands -->
+            <RowDefinition Height="*"/>     <!-- Row 4: Digest view -->
+            <RowDefinition Height="Auto"/>  <!-- Row 5: note -->
         </Grid.RowDefinitions>
 
         <!-- Row 0: Folder picker -->
@@ -24,16 +25,62 @@
             <Button x:Name="btnBrowse" Grid.Column="2" Content="Browse…" Margin="8,0,0,0" Padding="14,4" Click="btnBrowse_Click"/>
         </Grid>
 
-        <!-- Row 1: Options -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
+        <!-- Row 1: NEW - File list panel with checkboxes -->
+        <GroupBox Grid.Row="1" Header="Files in folder (checked items are included in the digest)"
+                  Margin="0,0,0,8">
+            <DockPanel LastChildFill="True">
+                <TextBlock x:Name="lblFileCount"
+                           DockPanel.Dock="Bottom"
+                           Margin="0,6,0,0"
+                           Foreground="Gray"/>
+                <DataGrid x:Name="dgFiles"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          CanUserSortColumns="True"
+                          IsReadOnly="False"
+                          SelectionMode="Extended"
+                          HeadersVisibility="Column"
+                          VirtualizingPanel.IsVirtualizing="True"
+                          EnableRowVirtualization="True"
+                          Margin="0">
+                    <DataGrid.Columns>
+                        <DataGridTemplateColumn Width="40" Header="">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <CheckBox
+                                        IsChecked="{Binding Include, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        IsThreeState="False"
+                                        Focusable="False"
+                                        VerticalAlignment="Center"
+                                        HorizontalAlignment="Center"
+                                        ClickMode="Press"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Binding="{Binding RelativePath}" Header="Relative Path"
+                                            SortMemberPath="RelativePath"
+                                            Width="*"/>
+                        <DataGridTextColumn Binding="{Binding ModifiedDisplay}" Header="Modified"
+                                            SortMemberPath="LastWriteTime"
+                                            Width="165"/>
+                        <DataGridTextColumn Binding="{Binding SizeDisplay}" Header="Size"
+                                            SortMemberPath="SizeBytes"
+                                            Width="110"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+        </GroupBox>
+
+        <!-- Row 2: Options -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,8" VerticalAlignment="Center">
             <CheckBox x:Name="chkIncludeHidden" Content="Include hidden files" Margin="0,0,16,0"/>
             <CheckBox x:Name="chkIncludeBinaries" Content="Include binary files" Margin="0,0,16,0"/>
             <TextBlock Text="Max file size (MB):" VerticalAlignment="Center" Margin="0,0,8,0"/>
             <TextBox x:Name="txtMaxMB" Width="60" Height="28" Text="1" VerticalContentAlignment="Center" ToolTip="Files larger than this are skipped"/>
         </StackPanel>
 
-        <!-- Row 2: Command buttons + progress -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,8">
+        <!-- Row 3: Command buttons + progress -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,8">
             <Button x:Name="btnGenerate" Content="Generate Digest" Padding="14,6" Click="btnGenerate_Click"/>
             <Button x:Name="btnCopy" Content="Copy" Padding="14,6" Margin="8,0,0,0" Click="btnCopy_Click" IsEnabled="False"/>
             <Button x:Name="btnSave" Content="Save…" Padding="14,6" Margin="8,0,0,0" Click="btnSave_Click" IsEnabled="False"/>
@@ -41,9 +88,9 @@
             <TextBlock x:Name="lblStatus" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="Gray"/>
         </StackPanel>
 
-        <!-- Row 3: Digest view -->
+        <!-- Row 4: Digest view -->
         <TextBox x:Name="txtOutput"
-                 Grid.Row="3"
+                 Grid.Row="4"
                  FontFamily="Consolas"
                  FontSize="12"
                  AcceptsReturn="True"
@@ -54,8 +101,8 @@
                  IsReadOnly="True"
                  Background="{DynamicResource {x:Static SystemColors.ControlLightLightBrushKey}}"/>
 
-        <!-- Row 4: note -->
-        <TextBlock Grid.Row="4"
+        <!-- Row 5: note -->
+        <TextBlock Grid.Row="5"
                    Foreground="DimGray"
                    FontSize="12"
                    Margin="0,8,0,0">

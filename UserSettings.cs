@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.Json;
@@ -7,11 +8,16 @@ namespace FolderDigest
 {
     /// <summary>
     /// Stores simple user settings in the current working directory as JSON.
-    /// Only remembers the last selected folder path for now.
+    /// Remembers last selected folder and, per folder, which files are excluded.
+    /// Default is included unless listed in Excluded.
     /// </summary>
     public sealed class UserSettings
     {
         public string? LastFolder { get; set; }
+
+        // Per-folder selection state: only store Excluded paths (relative to the folder).
+        public Dictionary<string, FolderSelectionState> Selections { get; set; }
+            = new(StringComparer.OrdinalIgnoreCase);
 
         // Capture the starting CWD once so file dialogs don't accidentally move it later.
         private static readonly string BaseCwd = GetStartingCwd();
@@ -48,10 +54,52 @@ namespace FolderDigest
             }
         }
 
+        public bool IsIncluded(string folder, string relativePath)
+        {
+            var norm = NormalizeRel(relativePath);
+            if (Selections.TryGetValue(folder, out var state))
+                return !state.Excluded.Contains(norm);
+            return true; // default: included
+        }
+
+        public void SetIncluded(string folder, string relativePath, bool include)
+        {
+            var norm = NormalizeRel(relativePath);
+            if (!Selections.TryGetValue(folder, out var state))
+            {
+                state = new FolderSelectionState();
+                Selections[folder] = state;
+            }
+
+            if (!include) state.Excluded.Add(norm);
+            else state.Excluded.Remove(norm);
+
+            // Persist immediately as requested
+            Save();
+        }
+
+        public void PruneMissing(string folder, IReadOnlyCollection<string> currentRelativePaths)
+        {
+            if (!Selections.TryGetValue(folder, out var state) || state.Excluded.Count == 0) return;
+
+            var set = new HashSet<string>(currentRelativePaths, StringComparer.OrdinalIgnoreCase);
+            state.Excluded.RemoveWhere(p => !set.Contains(p));
+            Save();
+        }
+
+        private static string NormalizeRel(string rel)
+            => rel.Replace('\\', Path.DirectorySeparatorChar)
+                  .Replace('/', Path.DirectorySeparatorChar);
+
         private static string GetStartingCwd()
         {
             try { return Directory.GetCurrentDirectory(); }
             catch { return AppContext.BaseDirectory; } // best-effort fallback
         }
+    }
+
+    public sealed class FolderSelectionState
+    {
+        public HashSet<string> Excluded { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     }
 }
