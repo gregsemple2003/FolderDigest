@@ -75,6 +75,14 @@ namespace FolderDigest
             txtMaxMB.LostFocus += (_, __) => ScheduleRefreshFileList();
             txtMaxMB.TextChanged += (_, __) => { /* light debounce */ ScheduleRefreshFileList(); };
 
+            // Remember a typed-in, valid folder when you leave the box
+            txtFolder.LostFocus += (_, __) =>
+            {
+                var path = txtFolder.Text?.Trim();
+                if (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
+                    RememberFolderInRecent(path);
+            };
+
             // Bind grid
             dgFiles.ItemsSource = _fileItems;
 
@@ -90,6 +98,9 @@ namespace FolderDigest
                 await RefreshFileListAsync();
                 ApplySavedSortState();
             };
+
+            // Initialize recent button state
+            UpdateRecentButtonState();
         }
 
         private void btnBrowse_Click(object sender, RoutedEventArgs e)
@@ -104,6 +115,7 @@ namespace FolderDigest
             if (result == WinForms.DialogResult.OK && !string.IsNullOrWhiteSpace(dlg.SelectedPath))
             {
                 txtFolder.Text = dlg.SelectedPath; // triggers persistence + refresh via TextChanged
+                RememberFolderInRecent(dlg.SelectedPath); // NEW
             }
         }
 
@@ -119,6 +131,9 @@ namespace FolderDigest
             // Save the current folder before running
             _settings.LastFolder = root;
             _settings.Save();
+
+            // NEW: add to recent
+            RememberFolderInRecent(root);
 
             if (!double.TryParse(txtMaxMB.Text.Trim(), out var maxMb) || maxMb <= 0)
                 maxMb = 1.0;
@@ -341,8 +356,27 @@ namespace FolderDigest
 
         private void UpdateFileCountLabel()
         {
-            var selected = _fileItems.Count(f => f.Include);
-            lblFileCount.Text = $"{selected:N0} of {_fileItems.Count:N0} selected";
+            var total = _fileItems.Count;
+
+            long selectedBytes = 0;
+            int selectedCount = 0;
+            foreach (var f in _fileItems)
+            {
+                if (f.Include)
+                {
+                    selectedCount++;
+                    selectedBytes += f.SizeBytes;
+                }
+            }
+
+            // Round up to the nearest KB so tiny files don't show as 0 KB
+            var selectedKB = (selectedBytes + 1023) / 1024;
+
+            lblFileCount.Text = $"{selectedCount:N0} of {total:N0} selected";
+            if (grpFiles != null)
+            {
+                grpFiles.Header = $"Files in folder ({selectedKB:N0} KB selected)";
+            }
         }
 
         // ----------------------------
@@ -437,6 +471,72 @@ namespace FolderDigest
             
             // Force the DataGrid to refresh its sort indicators and apply the sort
             dgFiles.Items.Refresh();
+        }
+
+        // ----------------------------
+        // Recent folders functionality
+        // ----------------------------
+
+        private void UpdateRecentButtonState()
+        {
+            btnRecent.IsEnabled = true; // keep it clickable; we show a helpful tip when empty
+        }
+
+        private void RememberFolderInRecent(string folder)
+        {
+            try
+            {
+                _settings.AddRecentFolder(folder);
+                UpdateRecentButtonState();
+            }
+            catch { /* never crash on persistence */ }
+        }
+
+        private void btnRecent_Click(object sender, RoutedEventArgs e)
+        {
+            var menu = new ContextMenu();
+
+            // Seed: include current textbox path if it exists and isn't already in MRU
+            var recents = new List<string>(_settings.RecentFolders);
+            var current = txtFolder.Text?.Trim();
+            if (!string.IsNullOrWhiteSpace(current) && Directory.Exists(current) &&
+                !recents.Any(r => StringComparer.OrdinalIgnoreCase.Equals(r, current)))
+            {
+                recents.Insert(0, Path.GetFullPath(current));
+            }
+
+            if (recents.Count == 0)
+            {
+                menu.Items.Add(new MenuItem { Header = "No recent folders yet", IsEnabled = false });
+                var hint = new MenuItem { Header = "Tip: Use Browse… / Generate / or leave the box to remember", IsEnabled = false };
+                menu.Items.Add(hint);
+            }
+            else
+            {
+                foreach (var path in recents)
+                {
+                    var mi = new MenuItem { Header = path };
+                    mi.Click += (_, __) => { txtFolder.Text = path; };
+                    menu.Items.Add(mi);
+                }
+
+                menu.Items.Add(new Separator());
+                var miClear = new MenuItem { Header = "Clear recent" };
+                miClear.Click += (_, __) =>
+                {
+                    _settings.RecentFolders.Clear();
+                    _settings.Save();
+                    // no need to disable the button; menu will just show the tip next time
+                };
+                menu.Items.Add(miClear);
+            }
+
+            // Show the menu under the button
+            btnRecent.ContextMenu = menu;
+            menu.PlacementTarget = btnRecent;
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            menu.IsOpen = true;
+            menu.Closed += (_, __) => btnRecent.ContextMenu = null;
         }
     }
 }

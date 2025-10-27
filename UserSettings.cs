@@ -29,6 +29,9 @@ namespace FolderDigest
         public Dictionary<string, FolderSelectionState> Selections { get; set; }
             = new(StringComparer.OrdinalIgnoreCase);
 
+        // NEW: most-recently-used folders (normalized full paths)
+        public List<string> RecentFolders { get; set; } = new();
+
         // Capture the starting CWD once so file dialogs don't accidentally move it later.
         private static readonly string BaseCwd = GetStartingCwd();
         private static string SettingsPath => Path.Combine(BaseCwd, "FolderDigest.settings.json");
@@ -94,6 +97,31 @@ namespace FolderDigest
 
             var set = new HashSet<string>(currentRelativePaths, StringComparer.OrdinalIgnoreCase);
             state.Excluded.RemoveWhere(p => !set.Contains(p));
+            Save();
+        }
+
+        public void AddRecentFolder(string folder)
+        {
+            if (string.IsNullOrWhiteSpace(folder)) return;
+
+            string full;
+            try { full = Path.GetFullPath(folder.Trim()); }
+            catch { return; }
+
+            if (!Directory.Exists(full)) return;
+
+            // De-dup (case-insensitive), move to front
+            for (int i = RecentFolders.Count - 1; i >= 0; i--)
+                if (StringComparer.OrdinalIgnoreCase.Equals(RecentFolders[i], full))
+                    RecentFolders.RemoveAt(i);
+
+            RecentFolders.Insert(0, full);
+
+            // Cap the list
+            const int MaxRecent = 12;
+            if (RecentFolders.Count > MaxRecent)
+                RecentFolders.RemoveRange(MaxRecent, RecentFolders.Count - MaxRecent);
+
             Save();
         }
 

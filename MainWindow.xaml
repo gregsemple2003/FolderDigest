@@ -7,7 +7,7 @@
     <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>  <!-- Row 0: Folder picker -->
-            <RowDefinition Height="Auto"/>  <!-- Row 1: NEW file list panel -->
+            <RowDefinition Height="*"/>     <!-- Row 1: File list panel (scrolls within) -->
             <RowDefinition Height="Auto"/>  <!-- Row 2: Options -->
             <RowDefinition Height="Auto"/>  <!-- Row 3: Commands -->
             <RowDefinition Height="*"/>     <!-- Row 4: Digest view -->
@@ -19,15 +19,29 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>   <!-- NEW: recent dropdown button -->
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
+
             <TextBlock Text="Folder:" VerticalAlignment="Center" Margin="0,0,8,0"/>
             <TextBox x:Name="txtFolder" Grid.Column="1" Height="28" VerticalContentAlignment="Center"/>
-            <Button x:Name="btnBrowse" Grid.Column="2" Content="Browse…" Margin="8,0,0,0" Padding="14,4" Click="btnBrowse_Click"/>
+
+            <!-- NEW: Recent folders drop-down -->
+            <Button x:Name="btnRecent"
+                    Grid.Column="2"
+                    Content="▾"
+                    Width="28" Height="28"
+                    Margin="6,0,0,0"
+                    ToolTip="Recent folders"
+                    Click="btnRecent_Click"/>
+
+            <Button x:Name="btnBrowse" Grid.Column="3" Content="Browse…" Margin="8,0,0,0" Padding="14,4" Click="btnBrowse_Click"/>
         </Grid>
 
         <!-- Row 1: NEW - File list panel with checkboxes -->
-        <GroupBox Grid.Row="1" Header="Files in folder (checked items are included in the digest)"
+        <GroupBox x:Name="grpFiles"
+                  Grid.Row="1" 
+                  Header="Files in folder (0 KB selected)"
                   Margin="0,0,0,8">
             <DockPanel LastChildFill="True">
                 <TextBlock x:Name="lblFileCount"
