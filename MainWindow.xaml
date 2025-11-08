@@ -42,12 +42,12 @@
         <GroupBox x:Name="grpFiles"
                   Grid.Row="1" 
                   Header="Files in folder (0 KB selected)"
-                  Margin="0,0,0,8">
+                  Margin="0,4,0,8">
             <DockPanel LastChildFill="True">
                 <!-- NEW: Filter bar (right above the list) -->
                 <StackPanel Orientation="Horizontal"
                             DockPanel.Dock="Top"
-                            Margin="0,0,0,8">
+                            Margin="6,12,0,12">
                     <TextBlock Text="Filter:" VerticalAlignment="Center" Margin="0,0,8,0"/>
                     <TextBox x:Name="txtFilter"
                              Width="260"
