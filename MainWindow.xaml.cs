@@ -25,6 +25,10 @@ namespace FolderDigest
         // Grid data
         private readonly ObservableCollection<FileItem> _fileItems = new();
 
+        // View over _fileItems so we can filter without touching data
+        private ICollectionView? _fileView;
+        private string _currentFilter = string.Empty;
+
         // Debounce scanning on text/options changes
         private CancellationTokenSource? _scanCts;
 
@@ -85,6 +89,21 @@ namespace FolderDigest
 
             // Bind grid
             dgFiles.ItemsSource = _fileItems;
+
+            // Create a view over the observable collection and attach a filter predicate
+            _fileView = CollectionViewSource.GetDefaultView(_fileItems);
+            _fileView.Filter = FilePassesFilter;
+
+            // Filter input: live updates; Esc clears
+            txtFilter.TextChanged += (_, __) => ApplyFilter();
+            txtFilter.KeyDown += (s, e) =>
+            {
+                if (e.Key == Key.Escape)
+                {
+                    txtFilter.Clear();
+                    e.Handled = true;
+                }
+            };
 
             // Hook up preview mouse event for multi-toggle checkbox functionality
             dgFiles.PreviewMouseLeftButtonDown += DgFiles_PreviewMouseLeftButtonDown;
@@ -321,6 +340,8 @@ namespace FolderDigest
                 // Prune missing exclusions from settings (keeps JSON tidy)
                 _settings.PruneMissing(root, _fileItems.Select(f => f.RelativePath).ToArray());
 
+                _fileView?.Refresh();   // keep whatever the user typed in the filter active
+
                 UpdateFileCountLabel();
                 lblStatus.Text = $"Ready. {_fileItems.Count:N0} candidate files.";
             }
@@ -537,6 +558,49 @@ namespace FolderDigest
             menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
             menu.IsOpen = true;
             menu.Closed += (_, __) => btnRecent.ContextMenu = null;
+        }
+
+        // ----------------------------
+        // View filter logic
+        // ----------------------------
+
+        private void ApplyFilter()
+        {
+            _currentFilter = txtFilter.Text?.Trim() ?? string.Empty;
+            _fileView?.Refresh();       // only affects what's shown, not Include state
+        }
+
+        private bool FilePassesFilter(object obj)
+        {
+            if (obj is not FileItem f) return false;
+            if (string.IsNullOrWhiteSpace(_currentFilter)) return true;
+
+            // Simple case-insensitive AND of space-separated tokens.
+            // Optional: prefix a token with "-" to exclude it.
+            var path = f.RelativePath ?? string.Empty;
+            var tokens = _currentFilter.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var token in tokens)
+            {
+                if (token.StartsWith("-", StringComparison.Ordinal))
+                {
+                    var term = token[1..];
+                    if (term.Length > 0 && path.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0)
+                        return false; // excluded term is present
+                }
+                else
+                {
+                    if (path.IndexOf(token, StringComparison.OrdinalIgnoreCase) < 0)
+                        return false; // required term missing
+                }
+            }
+            return true;
+        }
+
+        private void btnClearFilter_Click(object sender, RoutedEventArgs e)
+        {
+            txtFilter.Clear();
+            txtFilter.Focus();
         }
     }
 }

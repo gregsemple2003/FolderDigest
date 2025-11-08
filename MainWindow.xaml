@@ -38,16 +38,38 @@
             <Button x:Name="btnBrowse" Grid.Column="3" Content="Browse…" Margin="8,0,0,0" Padding="14,4" Click="btnBrowse_Click"/>
         </Grid>
 
-        <!-- Row 1: NEW - File list panel with checkboxes -->
+        <!-- Row 1: File list panel with checkboxes + filter bar -->
         <GroupBox x:Name="grpFiles"
                   Grid.Row="1" 
                   Header="Files in folder (0 KB selected)"
                   Margin="0,0,0,8">
             <DockPanel LastChildFill="True">
+                <!-- NEW: Filter bar (right above the list) -->
+                <StackPanel Orientation="Horizontal"
+                            DockPanel.Dock="Top"
+                            Margin="0,0,0,8">
+                    <TextBlock Text="Filter:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBox x:Name="txtFilter"
+                             Width="260"
+                             Height="28"
+                             VerticalContentAlignment="Center"
+                             ToolTip="Type to filter the list by path; this does not change checked status. Press Esc to clear."/>
+                    <Button x:Name="btnClearFilter"
+                            Content="×"
+                            Width="28"
+                            Height="28"
+                            Margin="6,0,0,0"
+                            ToolTip="Clear filter"
+                            Click="btnClearFilter_Click"/>
+                </StackPanel>
+
+                <!-- existing footer under the grid -->
                 <TextBlock x:Name="lblFileCount"
                            DockPanel.Dock="Bottom"
                            Margin="0,6,0,0"
                            Foreground="Gray"/>
+
+                <!-- existing grid -->
                 <DataGrid x:Name="dgFiles"
                           AutoGenerateColumns="False"
                           CanUserAddRows="False"
