@@ -6,6 +6,12 @@
 ## has more thorough IDE-specific entries.
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/Dotnet.gitignore
+**/.vs/
+
+**/bin/
+
+**/obj/
+
 
 # Build results
 [Dd]ebug/
