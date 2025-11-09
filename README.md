@@ -12,14 +12,10 @@ Designed for quickly sharing a project’s structure and contents (minus heavy/d
 * [What it does](#what-it-does)
 * [Features](#features)
 * [Using the app](#using-the-app)
-* [Digest format](#digest-format)
 * [Rules & heuristics (what gets included or skipped)](#rules--heuristics-what-gets-included-or-skipped)
 * [Keyboard & mouse tips](#keyboard--mouse-tips)
 * [Settings & persistence](#settings--persistence)
 * [Programmatic use (library API)](#programmatic-use-library-api)
-* [Project layout](#project-layout)
-* [Troubleshooting & notes](#troubleshooting--notes)
-* [Roadmap ideas](#roadmap-ideas)
 * [License](#license)
 
 ---
