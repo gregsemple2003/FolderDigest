@@ -25,6 +25,10 @@ namespace FolderDigest
         public string? SortColumn { get; set; } = "RelativePath";
         public string SortDirection { get; set; } = "Ascending"; // "Ascending", "Descending", or "None"
 
+        // Layout (star weights) for the resizable panes
+        public double FilePaneStars { get; set; } = 2.0;
+        public double DigestPaneStars { get; set; } = 1.0;
+
         // Per-folder selection state: only store Excluded paths (relative to the folder).
         public Dictionary<string, FolderSelectionState> Selections { get; set; }
             = new(StringComparer.OrdinalIgnoreCase);

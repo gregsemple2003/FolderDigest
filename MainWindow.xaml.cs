@@ -52,6 +52,9 @@ namespace FolderDigest
 
             _settings = UserSettings.Load();
 
+            // Apply saved pane sizes BEFORE positioning the window, so initial measure uses the right ratio.
+            ApplyPaneHeightsFromSettings();
+
             // Set window geometry from settings
             Left = _settings.WindowX;
             Top = _settings.WindowY;
@@ -241,11 +244,32 @@ namespace FolderDigest
                 _settings.WindowY = Top;
                 _settings.WindowWidth = Width;
                 _settings.WindowHeight = Height;
+
+                // Persist pane ratio (use star values when available, else fallback to actual heights)
+                double topWeight = RowDefFiles.Height.IsStar ? RowDefFiles.Height.Value : RowDefFiles.ActualHeight;
+                double bottomWeight = RowDefDigest.Height.IsStar ? RowDefDigest.Height.Value : RowDefDigest.ActualHeight;
+
+                if (topWeight <= 0) topWeight = 1;
+                if (bottomWeight <= 0) bottomWeight = 1;
+
+                _settings.FilePaneStars = topWeight;
+                _settings.DigestPaneStars = bottomWeight;
                 
                 _settings.Save();
             }
             catch { /* ignore */ }
             base.OnClosed(e);
+        }
+
+        private void ApplyPaneHeightsFromSettings()
+        {
+            // Safety: clamp to sane minimums to avoid collapsing panes
+            var top = _settings.FilePaneStars > 0 ? _settings.FilePaneStars : 2.0;
+            var bottom = _settings.DigestPaneStars > 0 ? _settings.DigestPaneStars : 1.0;
+
+            // Named RowDefinitions come from XAML
+            RowDefFiles.Height  = new GridLength(top, GridUnitType.Star);
+            RowDefDigest.Height = new GridLength(bottom, GridUnitType.Star);
         }
 
         // ----------------------------

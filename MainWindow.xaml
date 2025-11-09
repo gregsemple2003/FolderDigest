@@ -6,12 +6,12 @@
         WindowStartupLocation="Manual">
     <Grid Margin="12">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>  <!-- Row 0: Folder picker -->
-            <RowDefinition Height="*"/>     <!-- Row 1: File list panel (scrolls within) -->
-            <RowDefinition Height="Auto"/>  <!-- Row 2: Options -->
-            <RowDefinition Height="Auto"/>  <!-- Row 3: Commands -->
-            <RowDefinition Height="*"/>     <!-- Row 4: Digest view -->
-            <RowDefinition Height="Auto"/>  <!-- Row 5: note -->
+            <RowDefinition Height="Auto"/>              <!-- Row 0: Folder picker -->
+            <RowDefinition x:Name="RowDefFiles" Height="2*"/>  <!-- Row 1: File list panel -->
+            <RowDefinition Height="Auto"/>              <!-- Row 2: Options -->
+            <RowDefinition Height="Auto"/>              <!-- Row 3: Commands -->
+            <RowDefinition x:Name="RowDefDigest" Height="1*"/> <!-- Row 4: Digest view -->
+            <RowDefinition Height="Auto"/>              <!-- Row 5: note -->
         </Grid.RowDefinitions>
 
         <!-- Row 0: Folder picker -->
@@ -124,6 +124,22 @@
             <ProgressBar x:Name="progress" Width="170" Height="18" Margin="16,0,0,0" Visibility="Collapsed" IsIndeterminate="True"/>
             <TextBlock x:Name="lblStatus" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="Gray"/>
         </StackPanel>
+
+        <!-- Splitter that resizes Row 1 (files) vs Row 4 (digest).
+             We place it AT the bottom edge of Rows 2-3 by spanning both (Row 2..3),
+             but it visually appears just above the digest (Row 4). -->
+        <GridSplitter Grid.Row="2"
+                      Grid.RowSpan="2"
+                      Height="6"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Bottom"
+                      ResizeDirection="Rows"
+                      ResizeBehavior="PreviousAndNext"
+                      ShowsPreview="True"
+                      Background="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"
+                      Cursor="SizeNS"
+                      IsTabStop="False"
+                      Panel.ZIndex="100"/>
 
         <!-- Row 4: Digest view -->
         <TextBox x:Name="txtOutput"
