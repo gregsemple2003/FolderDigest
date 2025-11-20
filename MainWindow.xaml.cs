@@ -25,6 +25,9 @@ namespace FolderDigest
         // Grid data
         private readonly ObservableCollection<FileItem> _fileItems = new();
 
+        // Attachments grid
+        private readonly ObservableCollection<AttachmentRow> _attachments = new();
+
         // View over _fileItems so we can filter without touching data
         private ICollectionView? _fileView;
         private string _currentFilter = string.Empty;
@@ -90,8 +93,18 @@ namespace FolderDigest
                     RememberFolderInRecent(path);
             };
 
-            // Bind grid
+            // Bind grids
             dgFiles.ItemsSource = _fileItems;
+            dgAttachments.ItemsSource = _attachments;
+
+            // Load saved attachments
+            if (_settings.Attachments != null)
+            {
+                foreach (var setting in _settings.Attachments)
+                {
+                    _attachments.Add(AttachmentRow.FromSetting(setting));
+                }
+            }
 
             // Create a view over the observable collection and attach a filter predicate
             _fileView = CollectionViewSource.GetDefaultView(_fileItems);
@@ -179,12 +192,20 @@ namespace FolderDigest
 
             try
             {
-                var digest = await Task.Run(() =>
-                    DirectoryDigester.BuildDigest(root, opts, selected));
+                // Snapshot attachments so the background thread doesn't touch UI objects
+                var attachmentSnapshot = _attachments
+                    .Select(a => a.ToSetting())
+                    .ToArray();
 
-                txtOutput.Text = digest;
-                btnCopy.IsEnabled = digest.Length > 0;
-                btnSave.IsEnabled = digest.Length > 0;
+                var finalOutput = await Task.Run(() =>
+                {
+                    var digest = DirectoryDigester.BuildDigest(root, opts, selected);
+                    return AttachmentComposer.ApplyAttachments(digest, attachmentSnapshot);
+                });
+
+                txtOutput.Text = finalOutput;
+                btnCopy.IsEnabled = finalOutput.Length > 0;
+                btnSave.IsEnabled = finalOutput.Length > 0;
                 lblStatus.Text = $"Done. {DirectoryDigester.LastFileCount:N0} files included, {DirectoryDigester.LastSkippedCount:N0} skipped.";
             }
             catch (Exception ex)
@@ -254,7 +275,14 @@ namespace FolderDigest
 
                 _settings.FilePaneStars = topWeight;
                 _settings.DigestPaneStars = bottomWeight;
-                
+
+                // NEW: persist attachments
+                _settings.Attachments.Clear();
+                foreach (var row in _attachments)
+                {
+                    _settings.Attachments.Add(row.ToSetting());
+                }
+
                 _settings.Save();
             }
             catch { /* ignore */ }
@@ -625,6 +653,63 @@ namespace FolderDigest
         {
             txtFilter.Clear();
             txtFilter.Focus();
+        }
+
+        // ----------------------------
+        // Attachments UI
+        // ----------------------------
+
+        private void btnAddAttachment_Click(object sender, RoutedEventArgs e)
+        {
+            var row = new AttachmentRow
+            {
+                Position = AttachmentPosition.Before,
+                Type = "LogAttachment"
+            };
+
+            _attachments.Add(row);
+            dgAttachments.SelectedItem = row;
+            dgAttachments.ScrollIntoView(row);
+        }
+
+        private void btnRemoveAttachment_Click(object sender, RoutedEventArgs e)
+        {
+            if (dgAttachments.SelectedItem is AttachmentRow row)
+            {
+                _attachments.Remove(row);
+            }
+        }
+
+        private void AttachmentBrowse_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement fe) return;
+            if (fe.DataContext is not AttachmentRow row) return;
+
+            // Fully qualify to disambiguate from System.Windows.Forms.OpenFileDialog
+            var dlg = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Select log file to attach",
+                CheckFileExists = true
+            };
+
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(row.FilePath))
+                {
+                    var dir = Path.GetDirectoryName(row.FilePath);
+                    if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
+                        dlg.InitialDirectory = dir;
+                }
+            }
+            catch
+            {
+                // ignore
+            }
+
+            if (dlg.ShowDialog(this) == true)
+            {
+                row.FilePath = dlg.FileName;
+            }
         }
     }
 }

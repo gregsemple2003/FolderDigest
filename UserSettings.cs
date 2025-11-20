@@ -6,12 +6,18 @@ using System.Text.Json;
 
 namespace FolderDigest
 {
-    /// <summary>
-    /// Stores simple user settings in the current working directory as JSON.
-    /// Remembers last selected folder and, per folder, which files are excluded.
-    /// Default is included unless listed in Excluded.
-    /// </summary>
-    public sealed class UserSettings
+	public enum AttachmentPosition
+	{
+		Before,
+		After
+	}
+
+	/// <summary>
+	/// Stores simple user settings in the current working directory as JSON.
+	/// Remembers last selected folder and, per folder, which files are excluded.
+	/// Default is included unless listed in Excluded.
+	/// </summary>
+	public sealed class UserSettings
     {
         public string? LastFolder { get; set; }
 
@@ -35,6 +41,9 @@ namespace FolderDigest
 
         // NEW: most-recently-used folders (normalized full paths)
         public List<string> RecentFolders { get; set; } = new();
+
+        // Output attachments configuration (applies to all folders for now)
+        public List<AttachmentSetting> Attachments { get; set; } = new();
 
         // Capture the starting CWD once so file dialogs don't accidentally move it later.
         private static readonly string BaseCwd = GetStartingCwd();
