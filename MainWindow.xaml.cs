@@ -76,6 +76,7 @@ namespace FolderDigest
                 _settings.LastFolder = txtFolder.Text.Trim();
                 _settings.Save();            // persist immediately
                 ScheduleRefreshFileList();   // and refresh the panel
+                ApplyAttachmentActiveStateForCurrentFolder();
             };
 
             chkIncludeHidden.Checked += (_, __) => ScheduleRefreshFileList();
@@ -102,9 +103,14 @@ namespace FolderDigest
             {
                 foreach (var setting in _settings.Attachments)
                 {
-                    _attachments.Add(AttachmentRow.FromSetting(setting));
+                    var row = AttachmentRow.FromSetting(setting);
+                    row.PropertyChanged += AttachmentRow_PropertyChanged;
+                    _attachments.Add(row);
                 }
             }
+
+            // Apply per-folder activation for the initial folder
+            ApplyAttachmentActiveStateForCurrentFolder();
 
             // Create a view over the observable collection and attach a filter predicate
             _fileView = CollectionViewSource.GetDefaultView(_fileItems);
@@ -192,8 +198,9 @@ namespace FolderDigest
 
             try
             {
-                // Snapshot attachments so the background thread doesn't touch UI objects
+                // Snapshot only *active* attachments so the background thread doesn't touch UI objects
                 var attachmentSnapshot = _attachments
+                    .Where(a => a.IsActive)
                     .Select(a => a.ToSetting())
                     .ToArray();
 
@@ -276,12 +283,15 @@ namespace FolderDigest
                 _settings.FilePaneStars = topWeight;
                 _settings.DigestPaneStars = bottomWeight;
 
-                // NEW: persist attachments
+                // Persist attachments themselves (global, not per-folder active flags)
                 _settings.Attachments.Clear();
                 foreach (var row in _attachments)
                 {
                     _settings.Attachments.Add(row.ToSetting());
                 }
+
+                // Drop activation state for attachments that no longer exist
+                _settings.PruneAttachmentSelections(_attachments.Select(a => a.Id));
 
                 _settings.Save();
             }
@@ -659,6 +669,42 @@ namespace FolderDigest
         // Attachments UI
         // ----------------------------
 
+        private void AttachmentRow_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (sender is not AttachmentRow row)
+                return;
+
+            if (e.PropertyName == nameof(AttachmentRow.IsActive))
+            {
+                var folder = txtFolder.Text.Trim();
+                if (!string.IsNullOrWhiteSpace(folder))
+                {
+                    _settings.SetAttachmentActive(folder, row.Id, row.IsActive);
+                }
+            }
+        }
+
+        private void ApplyAttachmentActiveStateForCurrentFolder()
+        {
+            var folder = txtFolder.Text.Trim();
+
+            if (string.IsNullOrWhiteSpace(folder))
+            {
+                // No folder: treat all as inactive in the UI
+                foreach (var row in _attachments)
+                {
+                    row.IsActive = false;
+                }
+                return;
+            }
+
+            foreach (var row in _attachments)
+            {
+                // If there is no entry for this folder/attachment, default is false
+                row.IsActive = _settings.IsAttachmentActive(folder, row.Id);
+            }
+        }
+
         private void btnAddAttachment_Click(object sender, RoutedEventArgs e)
         {
             var row = new AttachmentRow
@@ -666,6 +712,15 @@ namespace FolderDigest
                 Position = AttachmentPosition.Before,
                 Type = "LogAttachment"
             };
+
+            // New rows default to whatever the per-folder state says (usually false for a new Id)
+            var folder = txtFolder.Text.Trim();
+            if (!string.IsNullOrWhiteSpace(folder))
+            {
+                row.IsActive = _settings.IsAttachmentActive(folder, row.Id);
+            }
+
+            row.PropertyChanged += AttachmentRow_PropertyChanged;
 
             _attachments.Add(row);
             dgAttachments.SelectedItem = row;
@@ -676,7 +731,9 @@ namespace FolderDigest
         {
             if (dgAttachments.SelectedItem is AttachmentRow row)
             {
+                row.PropertyChanged -= AttachmentRow_PropertyChanged;
                 _attachments.Remove(row);
+                // Stale IDs in AttachmentSelections are cleaned up on close via PruneAttachmentSelections
             }
         }
 

@@ -45,6 +45,10 @@ namespace FolderDigest
         // Output attachments configuration (applies to all folders for now)
         public List<AttachmentSetting> Attachments { get; set; } = new();
 
+        // Per-folder attachment activation: which attachment rows are active for a given folder.
+        public Dictionary<string, FolderAttachmentSelectionState> AttachmentSelections { get; set; }
+            = new(StringComparer.OrdinalIgnoreCase);
+
         // Capture the starting CWD once so file dialogs don't accidentally move it later.
         private static readonly string BaseCwd = GetStartingCwd();
         private static string SettingsPath => Path.Combine(BaseCwd, "FolderDigest.settings.json");
@@ -138,6 +142,55 @@ namespace FolderDigest
             Save();
         }
 
+        public bool IsAttachmentActive(string folder, Guid attachmentId)
+        {
+            if (AttachmentSelections.TryGetValue(folder, out var state))
+                return state.ActiveAttachmentIds.Contains(attachmentId);
+
+            // Default: attachments are inactive for a new folder
+            return false;
+        }
+
+        public void SetAttachmentActive(string folder, Guid attachmentId, bool isActive)
+        {
+            if (string.IsNullOrWhiteSpace(folder))
+                return;
+
+            if (!AttachmentSelections.TryGetValue(folder, out var state))
+            {
+                if (!isActive)
+                {
+                    // default is inactive, nothing to store
+                    return;
+                }
+
+                state = new FolderAttachmentSelectionState();
+                AttachmentSelections[folder] = state;
+            }
+
+            if (isActive)
+                state.ActiveAttachmentIds.Add(attachmentId);
+            else
+                state.ActiveAttachmentIds.Remove(attachmentId);
+
+            Save();
+        }
+
+        public void PruneAttachmentSelections(IEnumerable<Guid> existingAttachmentIds)
+        {
+            var validIds = new HashSet<Guid>(existingAttachmentIds);
+
+            if (AttachmentSelections.Count == 0)
+                return;
+
+            foreach (var kvp in AttachmentSelections.Values)
+            {
+                kvp.ActiveAttachmentIds.RemoveWhere(id => !validIds.Contains(id));
+            }
+
+            Save();
+        }
+
         private static string NormalizeRel(string rel)
             => rel.Replace('\\', Path.DirectorySeparatorChar)
                   .Replace('/', Path.DirectorySeparatorChar);
@@ -152,5 +205,10 @@ namespace FolderDigest
     public sealed class FolderSelectionState
     {
         public HashSet<string> Excluded { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    }
+
+    public sealed class FolderAttachmentSelectionState
+    {
+        public HashSet<Guid> ActiveAttachmentIds { get; set; } = new();
     }
 }

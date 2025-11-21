@@ -12,6 +12,7 @@ namespace FolderDigest
     /// </summary>
     public sealed class AttachmentSetting
     {
+        public Guid Id { get; set; }                    // NEW: stable identity per row
         public AttachmentPosition Position { get; set; } = AttachmentPosition.Before;
         public string Type { get; set; } = "LogAttachment";
         public string? FilePath { get; set; }
@@ -181,10 +182,44 @@ namespace FolderDigest
     /// </summary>
     public sealed class AttachmentRow : INotifyPropertyChanged
     {
+        private Guid _id = Guid.NewGuid();
         private AttachmentPosition _position = AttachmentPosition.Before;
         private string _type = "LogAttachment";
         private string _filePath = string.Empty;
         private string _startPattern = string.Empty;
+        private bool _isActive; // NEW
+
+        /// <summary>
+        /// Stable identity for this row; used to persist per-folder active state.
+        /// </summary>
+        public Guid Id
+        {
+            get => _id;
+            set
+            {
+                if (_id != value)
+                {
+                    _id = value;
+                    OnPropertyChanged(nameof(Id));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Whether this attachment is active for the current folder.
+        /// </summary>
+        public bool IsActive
+        {
+            get => _isActive;
+            set
+            {
+                if (_isActive != value)
+                {
+                    _isActive = value;
+                    OnPropertyChanged(nameof(IsActive));
+                }
+            }
+        }
 
         public AttachmentPosition Position
         {
@@ -241,6 +276,7 @@ namespace FolderDigest
         public AttachmentSetting ToSetting()
             => new AttachmentSetting
             {
+                Id = this.Id,
                 Position = this.Position,
                 Type = this.Type,
                 FilePath = this.FilePath,
@@ -251,13 +287,18 @@ namespace FolderDigest
         {
             if (setting == null) throw new ArgumentNullException(nameof(setting));
 
-            return new AttachmentRow
+            var row = new AttachmentRow
             {
                 Position = setting.Position,
                 Type = string.IsNullOrWhiteSpace(setting.Type) ? "LogAttachment" : setting.Type,
                 FilePath = setting.FilePath ?? string.Empty,
                 StartPattern = setting.StartPattern ?? string.Empty
             };
+
+            // Backwards‑compat: old settings won't have Id populated
+            row.Id = setting.Id != Guid.Empty ? setting.Id : Guid.NewGuid();
+
+            return row;
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

@@ -193,6 +193,11 @@
                               HeadersVisibility="Column"
                               Margin="0">
                         <DataGrid.Columns>
+                            <!-- NEW: per-row active flag -->
+                            <DataGridCheckBoxColumn Header="On"
+                                                    Width="40"
+                                                    Binding="{Binding IsActive, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
                             <DataGridComboBoxColumn Header="Attach"
                                                     Width="80"
                                                     ItemsSource="{StaticResource AttachmentPositions}"
