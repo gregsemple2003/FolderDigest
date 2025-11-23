@@ -130,11 +130,25 @@
 
         <!-- Row 3: Command buttons + progress -->
         <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,8">
-            <Button x:Name="btnGenerate" Content="Generate Digest" Padding="14,6" Click="btnGenerate_Click"/>
-            <Button x:Name="btnCopy" Content="Copy" Padding="14,6" Margin="8,0,0,0" Click="btnCopy_Click" IsEnabled="False"/>
-            <Button x:Name="btnSave" Content="Save…" Padding="14,6" Margin="8,0,0,0" Click="btnSave_Click" IsEnabled="False"/>
-            <ProgressBar x:Name="progress" Width="170" Height="18" Margin="16,0,0,0" Visibility="Collapsed" IsIndeterminate="True"/>
-            <TextBlock x:Name="lblStatus" Margin="12,0,0,0" VerticalAlignment="Center" Foreground="Gray"/>
+            <Button x:Name="btnGenerate"
+                    Content="Copy Digest"
+                    Padding="14,6"
+                    Click="btnGenerate_Click"/>
+            <Button x:Name="btnAttachments"
+                    Content="Attachments…"
+                    Padding="14,6"
+                    Margin="8,0,0,0"
+                    Click="btnAttachments_Click"/>
+            <ProgressBar x:Name="progress"
+                         Width="170"
+                         Height="18"
+                         Margin="16,0,0,0"
+                         Visibility="Collapsed"
+                         IsIndeterminate="True"/>
+            <TextBlock x:Name="lblStatus"
+                       Margin="12,0,0,0"
+                       VerticalAlignment="Center"
+                       Foreground="Gray"/>
         </StackPanel>
 
         <!-- Splitter that resizes Row 1 (files) vs Row 4 (digest).
@@ -153,35 +167,53 @@
                       IsTabStop="False"
                       Panel.ZIndex="100"/>
 
-        <!-- Row 4: Digest + attachments tabs -->
-        <TabControl x:Name="tabOutput" Grid.Row="4">
-            <TabItem Header="Output">
-                <TextBox x:Name="txtOutput"
-                         FontFamily="Consolas"
-                         FontSize="12"
-                         AcceptsReturn="True"
-                         AcceptsTab="True"
-                         TextWrapping="NoWrap"
-                         HorizontalScrollBarVisibility="Auto"
-                         VerticalScrollBarVisibility="Auto"
-                         IsReadOnly="True"
-                         Background="{DynamicResource {x:Static SystemColors.ControlLightLightBrushKey}}"/>
-            </TabItem>
+        <!-- Row 4: Digest output -->
+        <TextBox x:Name="txtOutput"
+                 Grid.Row="4"
+                 FontFamily="Consolas"
+                 FontSize="12"
+                 AcceptsReturn="True"
+                 AcceptsTab="True"
+                 TextWrapping="NoWrap"
+                 HorizontalScrollBarVisibility="Auto"
+                 VerticalScrollBarVisibility="Auto"
+                 IsReadOnly="True"
+                 Background="{DynamicResource {x:Static SystemColors.ControlLightLightBrushKey}}"/>
 
-            <TabItem Header="Attachments">
-                <DockPanel Margin="0">
-                    <StackPanel Orientation="Horizontal"
-                                DockPanel.Dock="Top"
+        <!-- Full-window attachments popup overlay (Esc or Close to dismiss) -->
+        <Border x:Name="attachmentsPopup"
+                Grid.RowSpan="6"
+                Visibility="Collapsed"
+                Background="#7F000000"
+                Panel.ZIndex="200">
+            <!-- Big centered editor panel -->
+            <Border HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    Margin="32"
+                    Padding="12"
+                    Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+                <DockPanel LastChildFill="True">
+                    <StackPanel DockPanel.Dock="Top"
                                 Margin="0,0,0,8">
-                        <Button x:Name="btnAddAttachment"
-                                Content="Add"
-                                Padding="12,4"
-                                Margin="0,0,8,0"
-                                Click="btnAddAttachment_Click"/>
-                        <Button x:Name="btnRemoveAttachment"
-                                Content="Remove"
-                                Padding="12,4"
-                                Click="btnRemoveAttachment_Click"/>
+                        <!-- Brief explanation -->
+                        <TextBlock Text="Add text attachments to the digest output."
+                                   Margin="0,0,0,8"
+                                   TextWrapping="Wrap" />
+                        <StackPanel Orientation="Horizontal">
+                            <Button x:Name="btnAddAttachment"
+                                    Content="Add"
+                                    Padding="12,4"
+                                    Margin="0,0,8,0"
+                                    Click="btnAddAttachment_Click" />
+                            <Button x:Name="btnRemoveAttachment"
+                                    Content="Remove"
+                                    Padding="12,4"
+                                    Click="btnRemoveAttachment_Click" />
+                            <Button Content="Close"
+                                    Padding="12,4"
+                                    Margin="8,0,0,0"
+                                    Click="btnCloseAttachments_Click" />
+                        </StackPanel>
                     </StackPanel>
 
                     <DataGrid x:Name="dgAttachments"
@@ -191,22 +223,22 @@
                               IsReadOnly="False"
                               SelectionMode="Single"
                               HeadersVisibility="Column"
-                              Margin="0">
+                              Margin="0,0,0,4">
                         <DataGrid.Columns>
-                            <!-- NEW: per-row active flag -->
+                            <!-- per-row active flag -->
                             <DataGridCheckBoxColumn Header="On"
                                                     Width="40"
-                                                    Binding="{Binding IsActive, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    Binding="{Binding IsActive, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                             <DataGridComboBoxColumn Header="Attach"
                                                     Width="80"
                                                     ItemsSource="{StaticResource AttachmentPositions}"
-                                                    SelectedItemBinding="{Binding Position, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    SelectedItemBinding="{Binding Position, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                             <DataGridComboBoxColumn Header="Type"
                                                     Width="120"
                                                     ItemsSource="{StaticResource AttachmentTypes}"
-                                                    SelectedItemBinding="{Binding Type, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    SelectedItemBinding="{Binding Type, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                             <DataGridTemplateColumn Header="File" Width="*">
                                 <DataGridTemplateColumn.CellTemplate>
@@ -214,11 +246,11 @@
                                         <DockPanel>
                                             <TextBox Text="{Binding FilePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                      VerticalContentAlignment="Center"
-                                                     Margin="0,0,4,0"/>
+                                                     Margin="0,0,4,0" />
                                             <Button Content="…"
                                                     Width="26"
                                                     DockPanel.Dock="Right"
-                                                    Click="AttachmentBrowse_Click"/>
+                                                    Click="AttachmentBrowse_Click" />
                                         </DockPanel>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
@@ -226,17 +258,17 @@
 
                             <DataGridTextColumn Header="Start regex"
                                                 Width="220"
-                                                Binding="{Binding StartPattern, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                                Binding="{Binding StartPattern, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         </DataGrid.Columns>
                     </DataGrid>
 
                     <TextBlock DockPanel.Dock="Bottom"
                                Margin="0,4,0,0"
                                Foreground="Gray"
-                               Text="LogAttachment: contents from the first line matching the regex (if any) through the end of the file are attached."/>
+                               Text="LogAttachment: contents from the first line matching the regex (if any) through the end of the file are attached." />
                 </DockPanel>
-            </TabItem>
-        </TabControl>
+            </Border>
+        </Border>
 
         <!-- Row 5: note -->
         <TextBlock Grid.Row="5"

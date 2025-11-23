@@ -193,8 +193,6 @@ namespace FolderDigest
 
             ToggleBusy(true, "Building digest…");
             txtOutput.Clear();
-            btnCopy.IsEnabled = false;
-            btnSave.IsEnabled = false;
 
             try
             {
@@ -211,9 +209,17 @@ namespace FolderDigest
                 });
 
                 txtOutput.Text = finalOutput;
-                btnCopy.IsEnabled = finalOutput.Length > 0;
-                btnSave.IsEnabled = finalOutput.Length > 0;
-                lblStatus.Text = $"Done. {DirectoryDigester.LastFileCount:N0} files included, {DirectoryDigester.LastSkippedCount:N0} skipped.";
+
+                if (!string.IsNullOrEmpty(finalOutput))
+                {
+                    System.Windows.Clipboard.SetText(finalOutput, System.Windows.TextDataFormat.UnicodeText);
+                    lblStatus.Text =
+                        $"Done and copied to clipboard. {DirectoryDigester.LastFileCount:N0} files included, {DirectoryDigester.LastSkippedCount:N0} skipped.";
+                }
+                else
+                {
+                    lblStatus.Text = "Done, but the digest was empty.";
+                }
             }
             catch (Exception ex)
             {
@@ -259,6 +265,43 @@ namespace FolderDigest
             btnBrowse.IsEnabled = !isBusy;
             progress.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
             lblStatus.Text = message ?? "";
+        }
+
+        protected override void OnPreviewKeyDown(System.Windows.Input.KeyEventArgs e)
+        {
+            // Close attachments popup on Esc
+            if (e.Key == Key.Escape && attachmentsPopup.Visibility == Visibility.Visible)
+            {
+                HideAttachmentsPopup();
+                e.Handled = true;
+                return;
+            }
+
+            base.OnPreviewKeyDown(e);
+        }
+
+        private void btnAttachments_Click(object sender, RoutedEventArgs e)
+        {
+            ShowAttachmentsPopup();
+        }
+
+        private void btnCloseAttachments_Click(object sender, RoutedEventArgs e)
+        {
+            HideAttachmentsPopup();
+        }
+
+        private void ShowAttachmentsPopup()
+        {
+            attachmentsPopup.Visibility = Visibility.Visible;
+            // Ensure IsActive flags are correct for the current folder
+            ApplyAttachmentActiveStateForCurrentFolder();
+            dgAttachments.Focus();
+        }
+
+        private void HideAttachmentsPopup()
+        {
+            attachmentsPopup.Visibility = Visibility.Collapsed;
+            btnGenerate.Focus();
         }
 
         protected override void OnClosed(EventArgs e)
