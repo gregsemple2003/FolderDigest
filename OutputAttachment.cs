@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace FolderDigest
@@ -12,11 +13,25 @@ namespace FolderDigest
     /// </summary>
     public sealed class AttachmentSetting
     {
-        public Guid Id { get; set; }                    // NEW: stable identity per row
+        public Guid Id { get; set; }                    // stable identity per row
         public AttachmentPosition Position { get; set; } = AttachmentPosition.Before;
+
+        /// <summary>
+        /// Logical type name for this attachment. For custom attachments this is
+        /// usually the simple class name (e.g. "MyCustomAttachment") or a
+        /// fully‑qualified type name.
+        /// </summary>
         public string Type { get; set; } = "LogAttachment";
+
+        // Legacy properties for LogAttachment; kept for backwards compatibility.
         public string? FilePath { get; set; }
         public string? StartPattern { get; set; }
+
+        /// <summary>
+        /// Optional serialized state for the attachment. When present this is used
+        /// to hydrate the IOutputAttachment instance that the property grid edits.
+        /// </summary>
+        public string? StateJson { get; set; }
     }
 
     public interface IOutputAttachment
@@ -28,6 +43,76 @@ namespace FolderDigest
         /// Must include any headers/footers and newlines.
         /// </summary>
         string Render();
+    }
+
+    /// <summary>
+    /// Helper to resolve attachment types by name, so custom IOutputAttachment
+    /// implementations can be plugged in without changing core code.
+    /// </summary>
+    internal static class AttachmentTypeResolver
+    {
+        private static readonly Dictionary<string, Type> Cache = new(StringComparer.OrdinalIgnoreCase);
+
+        public static Type? Resolve(string typeName)
+        {
+            if (string.IsNullOrWhiteSpace(typeName))
+                return null;
+
+            if (Cache.TryGetValue(typeName, out var cached))
+                return cached;
+
+            Type? result = null;
+
+            // 1) Short name in the FolderDigest namespace
+            if (!typeName.Contains("."))
+            {
+                var fullName = $"FolderDigest.{typeName}";
+                result = Type.GetType(fullName, throwOnError: false);
+            }
+
+            // 2) Fully‑qualified / assembly‑qualified
+            result ??= Type.GetType(typeName, throwOnError: false);
+
+            // 3) Scan loaded assemblies by simple name
+            if (result == null)
+            {
+                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    Type[] types;
+                    try
+                    {
+                        types = asm.GetTypes();
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+
+                    foreach (var t in types)
+                    {
+                        if (!typeof(IOutputAttachment).IsAssignableFrom(t))
+                            continue;
+
+                        if (string.Equals(t.Name, typeName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            result = t;
+                            break;
+                        }
+                    }
+
+                    if (result != null)
+                        break;
+                }
+            }
+
+            if (result != null && typeof(IOutputAttachment).IsAssignableFrom(result))
+            {
+                Cache[typeName] = result;
+                return result;
+            }
+
+            return null;
+        }
     }
 
     /// <summary>
@@ -81,21 +166,57 @@ namespace FolderDigest
 
         private static IOutputAttachment? CreateAttachment(AttachmentSetting setting)
         {
-            switch (setting.Type)
+            if (setting == null)
+                return null;
+
+            var type = AttachmentTypeResolver.Resolve(setting.Type);
+            if (type == null)
             {
-                case "LogAttachment":
-                    if (string.IsNullOrWhiteSpace(setting.FilePath))
-                        return null;
-
-                    return new LogAttachment
-                    {
-                        FilePath = setting.FilePath,
-                        StartPattern = setting.StartPattern ?? string.Empty
-                    };
-
-                default:
+                // Fallback for legacy LogAttachment rows
+                if (string.Equals(setting.Type, "LogAttachment", StringComparison.OrdinalIgnoreCase))
+                    type = typeof(LogAttachment);
+                else
                     return null;
             }
+
+            // If we have serialized state, prefer that.
+            if (!string.IsNullOrWhiteSpace(setting.StateJson))
+            {
+                try
+                {
+                    var obj = JsonSerializer.Deserialize(setting.StateJson, type);
+                    if (obj is IOutputAttachment attachmentFromJson)
+                        return attachmentFromJson;
+                }
+                catch
+                {
+                    // swallow and fall back to legacy mapping below
+                }
+            }
+
+            IOutputAttachment? attachment = null;
+            try
+            {
+                attachment = (IOutputAttachment?)Activator.CreateInstance(type);
+            }
+            catch
+            {
+                attachment = null;
+            }
+
+            if (attachment == null)
+                return null;
+
+            // Legacy support for LogAttachment: map FilePath/StartPattern
+            if (attachment is LogAttachment log)
+            {
+                if (!string.IsNullOrWhiteSpace(setting.FilePath))
+                    log.FilePath = setting.FilePath!;
+                if (!string.IsNullOrWhiteSpace(setting.StartPattern))
+                    log.StartPattern = setting.StartPattern!;
+            }
+
+            return attachment;
         }
     }
 
@@ -185,9 +306,10 @@ namespace FolderDigest
         private Guid _id = Guid.NewGuid();
         private AttachmentPosition _position = AttachmentPosition.Before;
         private string _type = "LogAttachment";
-        private string _filePath = string.Empty;
-        private string _startPattern = string.Empty;
-        private bool _isActive; // NEW
+        private string _filePath = string.Empty;      // kept for legacy browse handler
+        private string _startPattern = string.Empty;  // kept for legacy browse handler
+        private bool _isActive;
+        private IOutputAttachment? _attachment;
 
         /// <summary>
         /// Stable identity for this row; used to persist per-folder active state.
@@ -243,6 +365,15 @@ namespace FolderDigest
                 {
                     _type = value;
                     OnPropertyChanged(nameof(Type));
+
+                    // When the type changes, create a fresh attachment instance
+                    // so the property grid shows the right set of properties.
+                    Attachment = CreateAttachmentInstance(_type);
+                }
+                else if (_attachment == null)
+                {
+                    // Even if type doesn't change, ensure attachment is created if it's null
+                    Attachment = CreateAttachmentInstance(_type);
                 }
             }
         }
@@ -273,15 +404,60 @@ namespace FolderDigest
             }
         }
 
+        /// <summary>
+        /// The attachment model edited in the property grid. For custom attachments,
+        /// expose whatever public properties you like on your IOutputAttachment class.
+        /// </summary>
+        public IOutputAttachment? Attachment
+        {
+            get => _attachment;
+            set
+            {
+                if (!ReferenceEquals(_attachment, value))
+                {
+                    _attachment = value;
+                    OnPropertyChanged(nameof(Attachment));
+
+                    // For built‑in LogAttachment, mirror the key properties into the legacy
+                    // convenience fields so any old code that still reads them will see values.
+                    if (_attachment is LogAttachment log)
+                    {
+                        FilePath = log.FilePath;
+                        StartPattern = log.StartPattern;
+                    }
+                }
+            }
+        }
+
         public AttachmentSetting ToSetting()
-            => new AttachmentSetting
+        {
+            var setting = new AttachmentSetting
             {
                 Id = this.Id,
                 Position = this.Position,
-                Type = this.Type,
-                FilePath = this.FilePath,
-                StartPattern = this.StartPattern
+                Type = this.Type
             };
+
+            if (Attachment != null)
+            {
+                try
+                {
+                    setting.StateJson = JsonSerializer.Serialize(Attachment, Attachment.GetType());
+                }
+                catch
+                {
+                    // ignore – we'll still try to populate legacy fields below
+                }
+
+                if (Attachment is LogAttachment log)
+                {
+                    setting.FilePath = log.FilePath;
+                    setting.StartPattern = log.StartPattern;
+                }
+            }
+
+            return setting;
+        }
 
         public static AttachmentRow FromSetting(AttachmentSetting setting)
         {
@@ -290,15 +466,96 @@ namespace FolderDigest
             var row = new AttachmentRow
             {
                 Position = setting.Position,
-                Type = string.IsNullOrWhiteSpace(setting.Type) ? "LogAttachment" : setting.Type,
-                FilePath = setting.FilePath ?? string.Empty,
-                StartPattern = setting.StartPattern ?? string.Empty
+                Type = string.IsNullOrWhiteSpace(setting.Type) ? "LogAttachment" : setting.Type
             };
 
             // Backwards‑compat: old settings won't have Id populated
             row.Id = setting.Id != Guid.Empty ? setting.Id : Guid.NewGuid();
 
+            // Hydrate the attachment instance for the property grid
+            row.Attachment = CreateAttachmentFromSetting(row.Type, setting);
+
+            // For built‑in LogAttachment, mirror the key properties into the legacy
+            // convenience fields so any old code that still reads them will see values.
+            if (row.Attachment is LogAttachment log)
+            {
+                row.FilePath = log.FilePath;
+                row.StartPattern = log.StartPattern;
+            }
+            else
+            {
+                row.FilePath = setting.FilePath ?? string.Empty;
+                row.StartPattern = setting.StartPattern ?? string.Empty;
+            }
+
             return row;
+        }
+
+        private static IOutputAttachment? CreateAttachmentInstance(string typeName)
+        {
+            if (string.IsNullOrWhiteSpace(typeName))
+                return null;
+
+            var type = AttachmentTypeResolver.Resolve(typeName);
+            if (type == null)
+                return null;
+
+            try
+            {
+                return (IOutputAttachment?)Activator.CreateInstance(type);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static IOutputAttachment? CreateAttachmentFromSetting(string typeName, AttachmentSetting setting)
+        {
+            var type = AttachmentTypeResolver.Resolve(typeName);
+            if (type == null)
+            {
+                if (string.Equals(typeName, "LogAttachment", StringComparison.OrdinalIgnoreCase))
+                    type = typeof(LogAttachment);
+                else
+                    return null;
+            }
+
+            // Try new‑style JSON state first
+            if (!string.IsNullOrWhiteSpace(setting.StateJson))
+            {
+                try
+                {
+                    var obj = JsonSerializer.Deserialize(setting.StateJson, type);
+                    if (obj is IOutputAttachment attachmentFromJson)
+                        return attachmentFromJson;
+                }
+                catch
+                {
+                    // ignore and fall through
+                }
+            }
+
+            // Fall back to a default instance and hydrate any legacy fields we know about.
+            IOutputAttachment? instance;
+            try
+            {
+                instance = (IOutputAttachment?)Activator.CreateInstance(type);
+            }
+            catch
+            {
+                instance = null;
+            }
+
+            if (instance is LogAttachment log)
+            {
+                if (!string.IsNullOrWhiteSpace(setting.FilePath))
+                    log.FilePath = setting.FilePath!;
+                if (!string.IsNullOrWhiteSpace(setting.StartPattern))
+                    log.StartPattern = setting.StartPattern!;
+            }
+
+            return instance;
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

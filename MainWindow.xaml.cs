@@ -753,7 +753,7 @@ namespace FolderDigest
             var row = new AttachmentRow
             {
                 Position = AttachmentPosition.Before,
-                Type = "LogAttachment"
+                Type = "LogAttachment"  // Setting Type will automatically create the Attachment instance
             };
 
             // New rows default to whatever the per-folder state says (usually false for a new Id)
@@ -794,9 +794,20 @@ namespace FolderDigest
 
             try
             {
-                if (!string.IsNullOrWhiteSpace(row.FilePath))
+                // Try to get initial directory from the attachment model or legacy FilePath
+                string? initialPath = null;
+                if (row.Attachment is LogAttachment log && !string.IsNullOrWhiteSpace(log.FilePath))
                 {
-                    var dir = Path.GetDirectoryName(row.FilePath);
+                    initialPath = log.FilePath;
+                }
+                else if (!string.IsNullOrWhiteSpace(row.FilePath))
+                {
+                    initialPath = row.FilePath;
+                }
+
+                if (!string.IsNullOrWhiteSpace(initialPath))
+                {
+                    var dir = Path.GetDirectoryName(initialPath);
                     if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir))
                         dlg.InitialDirectory = dir;
                 }
@@ -808,7 +819,16 @@ namespace FolderDigest
 
             if (dlg.ShowDialog(this) == true)
             {
-                row.FilePath = dlg.FileName;
+                // Update the attachment model if it's a LogAttachment
+                if (row.Attachment is LogAttachment log)
+                {
+                    log.FilePath = dlg.FileName;
+                }
+                else
+                {
+                    // Fallback: update legacy FilePath property (will be synced if attachment is created later)
+                    row.FilePath = dlg.FileName;
+                }
             }
         }
     }

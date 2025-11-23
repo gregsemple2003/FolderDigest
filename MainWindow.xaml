@@ -223,6 +223,7 @@
                               IsReadOnly="False"
                               SelectionMode="Single"
                               HeadersVisibility="Column"
+                              RowHeight="140"
                               Margin="0,0,0,4">
                         <DataGrid.Columns>
                             <!-- per-row active flag -->
@@ -240,25 +241,14 @@
                                                     ItemsSource="{StaticResource AttachmentTypes}"
                                                     SelectedItemBinding="{Binding Type, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-                            <DataGridTemplateColumn Header="File" Width="*">
+                            <!-- NEW: single Properties column hosting a property grid -->
+                            <DataGridTemplateColumn Header="Properties" Width="*">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <DockPanel>
-                                            <TextBox Text="{Binding FilePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                     VerticalContentAlignment="Center"
-                                                     Margin="0,0,4,0" />
-                                            <Button Content="…"
-                                                    Width="26"
-                                                    DockPanel.Dock="Right"
-                                                    Click="AttachmentBrowse_Click" />
-                                        </DockPanel>
+                                        <local:PropertyGridHost SelectedObject="{Binding Attachment, Mode=TwoWay}" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-
-                            <DataGridTextColumn Header="Start regex"
-                                                Width="220"
-                                                Binding="{Binding StartPattern, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         </DataGrid.Columns>
                     </DataGrid>
 
